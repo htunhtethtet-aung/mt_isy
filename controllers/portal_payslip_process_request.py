@@ -27,7 +27,7 @@ class CustomerPortal(CustomerPortal):
     def _get_latest_total_car(self):
         accumulated_savings = request.env['account.move.line'].sudo().search([
             ('account_id.savings_for_education', '=', True),
-            ('partner_id', '=', request.env.user.address_home_id.id),
+            ('partner_id', '=', request.env.user.address_id.id),
             ('move_id.state', '=', 'posted')
         ])
         total_car_amt = sum(accumulated_savings.mapped('credit')) - sum(accumulated_savings.mapped('debit'))
