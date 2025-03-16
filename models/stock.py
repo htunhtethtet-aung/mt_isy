@@ -213,7 +213,7 @@ class InternalStockTransfer(models.Model):
                     raise ValidationError(_("Serial Number "+ serial_number + " already exists in progress records "+ str(result_list) +"."))                
 
         result = super(InternalStockTransfer, self).create(vals)
-        if result.destination_location.require_assign_person == True and result.assigned_type=='employee' and result.assigned_person and not result.assigned_person.sudo().address_home_id:
+        if result.destination_location.require_assign_person == True and result.assigned_type=='employee' and result.assigned_person and not result.assigned_person.sudo().address_id:
             raise ValidationError(_("%s doesn't have contact information. Please contact to the odoo admin."%(result.assigned_person.sudo().name)))
         return result
 
@@ -278,6 +278,7 @@ class InternalStockTransfer(models.Model):
                         'location_dest_id': istd.ist_id.destination_location.id,
                         'date': istd.ist_id.date_schedule,
                         'picking_type_id': istd.ist_id.sudo().picking_type_id.id,
+                        'company_id': self.env.user.company_id.id,
                     })
                 )
                 pid_serial.append({'product_id': istd.product_id.id, 'serial_number': istd.serial_number})
@@ -285,32 +286,32 @@ class InternalStockTransfer(models.Model):
             picking.update({'move_ids_without_package': picking_details})
             obj_stock_picking = self.env['stock.picking']
             obj_stock_picking_id = obj_stock_picking.sudo().create(picking)
+            
 
             owner_id = False
             if self.assigned_type == 'employee':
-                owner_id = self.assigned_person.sudo().address_home_id.id
+                owner_id = self.assigned_person.sudo().address_id.id
             elif self.assigned_type == 'student':
                 owner_id = self.assigned_student.sudo().id
             obj_stock_picking_id.write({'owner_id': owner_id or False})
             #obj_stock_picking_id.action_assign_owner()
-
             if obj_stock_picking_id.state == 'draft':
                 obj_stock_picking_id.action_confirm()
             if obj_stock_picking_id.state == 'confirmed':
                 obj_stock_picking_id.action_assign()
-
+            
             for sml_details in obj_stock_picking_id.move_line_ids:
                 for ps in pid_serial:
                     if ps['product_id'] == sml_details.product_id.id:
                         if self.is_grant_funded_transfer == True:
-                            lot_id = self.env['stock.production.lot'].sudo().create({
+                            lot_id = self.env['stock.lot'].sudo().create({
                                 'name': ps['serial_number'],
                                 'product_id': ps['product_id'],
                                 'company_id':self.env.user.company_id.id,
                             }                          
                             )
                         else:
-                            lot_id = self.env['stock.production.lot'].sudo().search([('name', '=', ps['serial_number'])])
+                            lot_id = self.env['stock.lot'].sudo().search([('name', '=', ps['serial_number'])])
                         sml_details.write(
                             {
                                 'lot_id': lot_id.id,
@@ -328,7 +329,7 @@ class InternalStockTransfer(models.Model):
             pid_serial = []
             owner_id = False
             if self.assigned_type == 'employee':
-                owner_id = self.assigned_person.sudo().address_home_id.id
+                owner_id = self.assigned_person.sudo().address_id.id
             elif self.assigned_type == 'student':
                 owner_id = self.assigned_student.sudo().id
 
@@ -340,14 +341,14 @@ class InternalStockTransfer(models.Model):
                 for ps in pid_serial:
                     if ps['product_id'] == sml_details.product_id.id:
                         if self.is_grant_funded_transfer == True:
-                            lot_id = self.env['stock.production.lot'].sudo().create({
+                            lot_id = self.env['stock.lot'].sudo().create({
                                 'name': ps['serial_number'],
                                 'product_id': ps['product_id'],
                                 'company_id':self.env.user.company_id.id,
                             }                          
                             )
                         else:
-                            lot_id = self.env['stock.production.lot'].sudo().search([('name', '=', ps['serial_number'])])
+                            lot_id = self.env['stock.lot'].sudo().search([('name', '=', ps['serial_number'])])
                         sml_details.write(
                             {
                                 'lot_id': lot_id.id,
@@ -431,7 +432,7 @@ class InternalStockTransfer(models.Model):
                 msg_validation = False
                 barcode = self.barcode_scanned
                 qty = 1
-                lot_id = self.env['stock.production.lot'].sudo().search([('name', '=', barcode)])
+                lot_id = self.env['stock.lot'].sudo().search([('name', '=', barcode)])
                 product_id = lot_id.product_id.id
                 obj_stock_report = self.env['isy.stock.report'].search([('serial_number','=', barcode)])
                 quant_check = self.env['stock.quant'].sudo().search([('lot_id', '=', lot_id.id), ('location_id', '=', self.source_location.id), ('location_id.usage', '=', 'internal')])
@@ -662,7 +663,7 @@ class StockPicking(models.Model):
             self.env['isy.stock.report'].create(isr_list)
         else:
             for val in self.move_line_ids:
-                #owner_id = self.env['hr.employee'].search([('address_home_id', '=', val.owner_id.id), ('address_home_id', '!=', False)]).id
+                #owner_id = self.env['hr.employee'].search([('address_id', '=', val.owner_id.id), ('address_id', '!=', False)]).id
                 obj_isr = self.env['isy.stock.report'].search([('serial_number', '=', val.lot_id.name)])
                 pass_note = ''
                 if not obj_isr.note:

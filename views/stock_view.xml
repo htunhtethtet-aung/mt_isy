@@ -98,9 +98,9 @@
                         </group>
                         <group col="3">
                                 
-                                <field name="product_id" invisible="state != 'draft' and is_grant_funded_transfer == False" domain="[('type','=','product')]"/>
-                                <field name="purchase_id" invisible="state != 'draft' and is_grant_funded_transfer == False"/>
-                                <field name="inventory_category" invisible="state != 'draft' and is_grant_funded_transfer == False"/>
+                                <field name="product_id" invisible="state != 'draft' or is_grant_funded_transfer == False" domain="[('type','=','product')]"/>
+                                <field name="purchase_id" invisible="state != 'draft' or is_grant_funded_transfer == False"/>
+                                <field name="inventory_category" invisible="state != 'draft' or is_grant_funded_transfer == False"/>
                                 <field name="assets_responsible_person" invisible="1" />
                                 <field name="assets_included" invisible="1"/>
 

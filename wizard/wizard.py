@@ -646,7 +646,7 @@ class ExpenseSettlement(models.TransientModel):
 
         move_vals = self.get_move_vals(obj_eae)
         move = self.env['account.move'].create(move_vals)
-        move.post()
+        move.action_post()
         vals = {
             'state': 'cleared',
             'settlement_move_id': move.id,
@@ -669,7 +669,13 @@ class ExpenseSettlement(models.TransientModel):
         company_currency = obj_eae.company_id.currency_id
         current_currency = obj_eae.currency_id
         #usd amount
-        amount = current_currency.with_context({'date':obj_eae.account_validate_date}).compute(obj_eae.total_amount_expense, company_currency)
+        # amount = current_currency.with_context({'date':obj_eae.account_validate_date}).compute(obj_eae.total_amount_expense, company_currency)
+        amount = current_currency._convert(
+            from_amount=obj_eae.total_amount_expense,
+            to_currency=company_currency,
+            company=self.env.company,
+            date=obj_eae.account_validate_date
+        )
         ref = obj_eae.name 
         move_line_debit = (0,0, {
             'name': ref,
@@ -679,11 +685,17 @@ class ExpenseSettlement(models.TransientModel):
             'journal_id': self.name.id,
             'partner_id': obj_eae.partner_id.id,
 #                 'analytic_account_id': category_id.account_analytic_id.id if category_id.type == 'sale' else False,
-            'currency_id': company_currency != current_currency and current_currency.id or False,
+            'currency_id': current_currency.id if company_currency != current_currency else company_currency.id,
             'amount_currency': company_currency != current_currency and 1.0 * obj_eae.total_amount_expense or 0.0,
         })
         vals.append(move_line_debit)
-        cash_amount = current_currency.compute(obj_eae.total_amount_expense, company_currency)
+        # cash_amount = current_currency.compute(obj_eae.total_amount_expense, company_currency)
+        cash_amount = current_currency._convert(
+            from_amount=obj_eae.total_amount_expense,
+            to_currency=company_currency,
+            company=self.env.company,
+            date=obj_eae.account_validate_date
+        )
         move_line_credit = (0,0, {
             'name': ref,
             'account_id': self.name.default_account_id.id,
@@ -692,7 +704,7 @@ class ExpenseSettlement(models.TransientModel):
             'journal_id': self.name.id,
             'partner_id': obj_eae.partner_id.id,
 #                 'analytic_account_id': category_id.account_analytic_id.id if category_id.type == 'sale' else False,
-            'currency_id': company_currency != current_currency and current_currency.id or False,
+            'currency_id': current_currency.id if company_currency != current_currency else company_currency.id,
             'amount_currency': company_currency != current_currency and -1.0 * obj_eae.total_amount_expense or 0.0,
         })
         vals.append(move_line_credit)
@@ -713,7 +725,7 @@ class ExpenseSettlement(models.TransientModel):
                 'journal_id': self.name.id,
                 'partner_id': obj_eae.partner_id.id,
 #                 'analytic_account_id': category_id.account_analytic_id.id if category_id.type == 'purchase' else False,
-                #'currency_id': company_currency != current_currency and current_currency.id or False,
+                #'currency_id': current_currency.id if company_currency != current_currency else company_currency.id,
                 #'amount_currency': company_currency != current_currency and diff_amount_currency if diff_amount_currency > 0 else -1 * diff_amount_currency or 0.0,
             })
             vals.append(gain_loss_diff)

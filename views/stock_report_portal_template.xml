@@ -15,7 +15,7 @@
 
         <template id="portal_isy_stock_report" name="Inventory Report" inherit_id="portal.portal_my_home" priority="40">
             <xpath expr="//div[hasclass('o_portal_docs')]" position="inside">
-                <t t-if="request.env.user.portal_inventory_user" t-call="portal.portal_docs_entry">
+                <t t-if="request.env.user.portal_inventory_user" t-call="isy_ticketing.portal_docs_entry">
                     <t t-set="title">Inventory Report</t>
                     <t t-set="url" t-value="'/my/isy_stock_report'"/>
                     <t t-set="count" t-value="stock_reports_lists_count"/>

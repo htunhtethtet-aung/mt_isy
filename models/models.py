@@ -237,7 +237,13 @@ class AdvanceExpenseClearanceLine(models.Model):
         for rec in self:
             rec.description = rec.product_id.name
             if rec.advance_id.company_id.currency_id != rec.advance_id.currency_id:
-                amount = rec.advance_id.company_id.currency_id.compute(rec.product_id.standard_price, rec.advance_id.currency_id)
+                # amount = rec.advance_id.company_id.currency_id.compute(rec.product_id.standard_price, rec.advance_id.currency_id)
+                amount = rec.advance_id.company_id.currency_id._convert(
+                from_amount=rec.product_id.standard_price,
+                to_currency=rec.advance_id.currency_id,
+                company=self.env.company,
+                date=fields.Date.today()
+                )
                 rec.unit_amount = amount
             else:
                 rec.unit_amount = rec.product_id.standard_price
@@ -272,6 +278,9 @@ class EmployeeAdvanceExpense(models.Model):
     x_studio_attachment_4 = fields.Binary(string="Attachment 4", attachment=True)
     x_studio_attachment_5 = fields.Binary(string="Attachment 5", attachment=True)
     is_asset = fields.Boolean(string="Is Asset(?)", default=False)
+    x_studio_to_approve = fields.Many2one('res.users', string='To Approve')
+    x_studio_field_b6lRX = fields.Many2one(related='x_studio_to_approve', string='To Approve')
+
 
     both_approval = fields.Boolean(default=False, string="Both Approval", help="It is true then user who has approval accounts can able to approve without caring the rules below 1000 and above 1000.")
     p_type = fields.Selection([
@@ -610,7 +619,6 @@ class EmployeeAdvanceExpense(models.Model):
                     company=self.env.company,
                     date=adv_exp_date
                 )
-
                 _logger.info(f"Converted Amount: {amount}, Original: {line.total_amount_expense}, Currency: {current_currency.name}")
 
                 ref = line.name
@@ -620,28 +628,33 @@ class EmployeeAdvanceExpense(models.Model):
                     move_line_credit = {
                         'name': ref,
                         'account_id': line.journal_id.default_account_id.id,
-                        'debit': 0.0 if float_compare(amount, 0.0, precision_digits=prec) > 0 else -amount,
-                        'credit': amount if float_compare(amount, 0.0, precision_digits=prec) > 0 else 0.0,
+                        # 'debit': 0.0 if float_compare(amount, 0.0, precision_digits=prec) > 0 else -amount,
+                        # 'credit': amount if float_compare(amount, 0.0, precision_digits=prec) > 0 else 0.0,
+                        'debit': 0.0,
+                        'credit': amount,
                         'journal_id': line.journal_id.id,
                         'partner_id': line.partner_id.id,
                         #                 'analytic_account_id': category_id.account_analytic_id.id if category_id.type == 'sale' else False,
-                        #'currency_id': company_currency != current_currency and current_currency.id or False,
+                        #'currency_id': current_currency.id if company_currency != current_currency else company_currency.id,
                         'currency_id': current_currency.id if company_currency != current_currency else company_currency.id,
-                        #'amount_currency': company_currency != current_currency and - 1.0 * line.total_amount_expense or 0.0,
-                        'amount_currency': -amount if float_compare(amount, 0.0, precision_digits=prec) > 0 else amount,
+                        # 'amount_currency': company_currency != current_currency and - 1.0 * line.total_amount_expense or 0.0,
+                        'amount_currency': line.total_amount_expense * -1.0,
+                        #'amount_currency': -amount if float_compare(amount, 0.0, precision_digits=prec) > 0 else amount,
                     }
                     move_line_debit = {
                         'name': ref,
                         'account_id': line.account_id.id,
-                        'credit': 0.0 if float_compare(amount, 0.0, precision_digits=prec) > 0 else -amount,
-                        'debit': amount if float_compare(amount, 0.0, precision_digits=prec) > 0 else 0.0,
+                        # 'credit': 0.0 if float_compare(amount, 0.0, precision_digits=prec) > 0 else -amount,
+                        # 'debit': amount if float_compare(amount, 0.0, precision_digits=prec) > 0 else 0.0,
+                        'credit': 0.0,
+                        'debit': amount,
                         'journal_id': line.journal_id.id,
                         'partner_id': line.partner_id.id,
                         #                 'analytic_account_id': category_id.account_analytic_id.id if category_id.type == 'purchase' else False,
-                        #'currency_id': company_currency != current_currency and current_currency.id or False,
+                        #'currency_id': current_currency.id if company_currency != current_currency else company_currency.id,
                         'currency_id': current_currency.id if company_currency != current_currency else company_currency.id,
-                        #'amount_currency': company_currency != current_currency and line.total_amount_expense or 0.0,
-                        'amount_currency': amount if float_compare(amount, 0.0, precision_digits=prec) > 0 else -amount,
+                        # 'amount_currency': company_currency != current_currency and line.total_amount_expense or 0.0,
+                        'amount_currency': line.total_amount_expense,
                     }
                     move_vals = {
                         'ref': line.name,
@@ -655,15 +668,17 @@ class EmployeeAdvanceExpense(models.Model):
                     move_line_credit = (0, 0, {
                         'name': ref,
                         'account_id': line.account_id.id,
-                        'debit': 0.0 if float_compare(amount, 0.0, precision_digits=prec) > 0 else -amount,
-                        'credit': amount if float_compare(amount, 0.0, precision_digits=prec) > 0 else 0.0,
+                        # 'debit': 0.0 if float_compare(amount, 0.0, precision_digits=prec) > 0 else -amount,
+                        # 'credit': amount if float_compare(amount, 0.0, precision_digits=prec) > 0 else 0.0,
+                        'debit': 0.0,
+                        'credit': amount,
                         'journal_id': line.exp_journal_id.id,
                         'partner_id': line.partner_id.id,
                         #                 'analytic_account_id': category_id.account_analytic_id.id if category_id.type == 'sale' else False,
-                        #'currency_id': company_currency != current_currency and current_currency.id or False,
+                        #'currency_id': current_currency.id if company_currency != current_currency else company_currency.id,
                         'currency_id': current_currency.id if company_currency != current_currency else company_currency.id,
-                        #'amount_currency': company_currency != current_currency and - 1.0 * line.total_amount_expense or 0.0,
-                        'amount_currency': -amount if float_compare(amount, 0.0, precision_digits=prec) > 0 else amount,
+                        # 'amount_currency': company_currency != current_currency and - 1.0 * line.total_amount_expense or 0.0,
+                        'amount_currency': line.total_amount_expense * -1.0,
                     })
                     move_line_list.append(move_line_credit)
                     for adv_exp_line in line.advance_expense_line_ids:
@@ -677,15 +692,17 @@ class EmployeeAdvanceExpense(models.Model):
                         move_line_debit = (0, 0, {
                             'name': ref,
                             'account_id': adv_exp_line.product_id.property_account_expense_id.id,
-                            'credit': 0.0 if float_compare(debit_amount, 0.0, precision_digits=prec) > 0 else -debit_amount,
-                            'debit': debit_amount if float_compare(debit_amount, 0.0, precision_digits=prec) > 0 else 0.0,
+                            # 'credit': 0.0 if float_compare(debit_amount, 0.0, precision_digits=prec) > 0 else -debit_amount,
+                            # 'debit': debit_amount if float_compare(debit_amount, 0.0, precision_digits=prec) > 0 else 0.0,
+                            'credit': 0.0,
+                            'debit': debit_amount,
                             'journal_id': line.exp_journal_id.id,
                             'partner_id': line.partner_id.id,
                             #                 'analytic_account_id': category_id.account_analytic_id.id if category_id.type == 'purchase' else False,
-                            #'currency_id': company_currency != current_currency and current_currency.id or False,
+                            #'currency_id': current_currency.id if company_currency != current_currency else company_currency.id,
                             'currency_id': current_currency.id if company_currency != current_currency else company_currency.id,
-                            #'amount_currency': company_currency != current_currency and line.total_amount_expense or 0.0,
-                            'amount_currency': amount if float_compare(amount, 0.0, precision_digits=prec) > 0 else -amount,
+                            # 'amount_currency': company_currency != current_currency and line.total_amount_expense or 0.0,
+                            'amount_currency': line.total_amount_expense,
                             'capex_group_id': self.capex_group_id.id
                         })
                         move_line_list.append(move_line_debit)
@@ -822,8 +839,9 @@ class EmployeeAdvanceExpense(models.Model):
             'journal_id': self.cls_journal_id.id,
             'partner_id': self.partner_id.id,
             #                 'analytic_account_id': category_id.account_analytic_id.id if category_id.type == 'sale' else False,
-            'currency_id': company_currency != current_currency and current_currency.id or False,
-            'amount_currency': company_currency != current_currency and - 1.0 * clear_amount or 0.0,
+            'currency_id': current_currency.id if company_currency != current_currency else company_currency.id,
+            # 'amount_currency': company_currency != current_currency and - 1.0 * clear_amount or 0.0,
+            'amount_currency': clear_amount * -1.0,
         })
         vals.append(move_line_credit)
 
@@ -837,8 +855,9 @@ class EmployeeAdvanceExpense(models.Model):
             'journal_id': self.cls_journal_id.id,
             'partner_id': self.partner_id.id,
             #                 'analytic_account_id': category_id.account_analytic_id.id if category_id.type == 'purchase' else False,
-            'currency_id': company_currency != current_currency and current_currency.id or False,
-            'amount_currency': company_currency != current_currency and clear_amount or 0.0,
+            'currency_id': current_currency.id if company_currency != current_currency else company_currency.id,
+            # 'amount_currency': company_currency != current_currency and clear_amount or 0.0,
+            'amount_currency': clear_amount,
         })
         vals.append(cash_move_line_debit)
 
@@ -858,8 +877,9 @@ class EmployeeAdvanceExpense(models.Model):
                 'journal_id': self.cls_journal_id.id,
                 'partner_id': self.partner_id.id,
                 #                 'analytic_account_id': category_id.account_analytic_id.id if category_id.type == 'purchase' else False,
-                'currency_id': company_currency != current_currency and current_currency.id or False,
-                'amount_currency': company_currency != current_currency and diff_amount_currency or 0.0,
+                'currency_id': current_currency.id if company_currency != current_currency else company_currency.id,
+                # 'amount_currency': company_currency != current_currency and diff_amount_currency or 0.0,
+                'amount_currency': diff_amount_currency,
             })
             vals.append(gain_loss_diff)
 
@@ -887,8 +907,13 @@ class EmployeeAdvanceExpense(models.Model):
         company_currency = self.company_id.currency_id
         current_currency = self.currency_id
         #usd amount
-        amount = current_currency.with_context({'date': self.account_validate_date}).compute(self.total_amount_expense, company_currency)
-
+        # amount = current_currency.with_context({'date': self.account_validate_date}).compute(self.total_amount_expense, company_currency)
+        amount = current_currency._convert(
+            from_amount=self.total_amount_expense,
+            to_currency=company_currency,
+            company=self.env.company,
+            date=self.account_validate_date
+        )
         ref = self.name
         move_line_credit = (0, 0, {
             'name': ref,
@@ -898,8 +923,9 @@ class EmployeeAdvanceExpense(models.Model):
             'journal_id': self.cls_journal_id.id,
             'partner_id': self.partner_id.id,
             #                 'analytic_account_id': category_id.account_analytic_id.id if category_id.type == 'sale' else False,
-            'currency_id': company_currency != current_currency and current_currency.id or False,
-            'amount_currency': company_currency != current_currency and - 1.0 * self.total_amount_expense or 0.0,
+            'currency_id': current_currency.id if company_currency != current_currency else company_currency.id,
+            # 'amount_currency': company_currency != current_currency and - 1.0 * self.total_amount_expense or 0.0,
+            'amount_currency': self.total_amount_expense * 1.0,
         })
         vals.append(move_line_credit)
 
@@ -908,7 +934,13 @@ class EmployeeAdvanceExpense(models.Model):
         for line in self.advance_expense_clearance_line_ids:
             #             category_id = line.asset_id.category_id
             #usd amount
-            line_amount = current_currency.with_context({'date': self.cash_clearance_date}).compute(line.total_amount, company_currency)
+            # line_amount = current_currency.with_context({'date': self.cash_clearance_date}).compute(line.total_amount, company_currency)
+            line_amount = current_currency._convert(
+                from_amount=line.total_amount,
+                to_currency=company_currency,
+                company=self.env.company,
+                date=self.cash_clearance_date
+            )
             #mmk amount
             counter_amount_currency += line.total_amount
             #usd amount
@@ -921,8 +953,9 @@ class EmployeeAdvanceExpense(models.Model):
                 'journal_id': line.advance_id.cls_journal_id.id,
                 'partner_id': line.advance_id.partner_id.id,
                 #                 'analytic_account_id': category_id.account_analytic_id.id if category_id.type == 'purchase' else False,
-                'currency_id': company_currency != current_currency and current_currency.id or False,
-                'amount_currency': company_currency != current_currency and line.total_amount or 0.0,
+                'currency_id': current_currency.id if company_currency != current_currency else company_currency.id,
+                # 'amount_currency': company_currency != current_currency and line.total_amount or 0.0,
+                'amount_currency': line.total_amount,
                 'capex_group_id': self.capex_group_id.id,
             })
             vals.append(move_line_debit)
@@ -932,7 +965,13 @@ class EmployeeAdvanceExpense(models.Model):
             #mmk amount
             cash_debit_amount_before = self.cash_cleared_amount  # self.total_amount_expense - counter_amount_currency
             #convert mmk to usd
-            cash_debit_amount = current_currency.with_context({'date': self.cash_clearance_date}).compute(cash_debit_amount_before, company_currency)
+            # cash_debit_amount = current_currency.with_context({'date': self.cash_clearance_date}).compute(cash_debit_amount_before, company_currency)
+            cash_debit_amount = current_currency._convert(
+                from_amount=cash_debit_amount_before,
+                to_currency=company_currency,
+                company=self.env.company,
+                date=self.cash_clearance_date
+            )
             cash_move_line_debit = (0, 0, {
                 'name': ref,
                 'account_id': self.journal_id.default_account_id.id,
@@ -941,8 +980,9 @@ class EmployeeAdvanceExpense(models.Model):
                 'journal_id': self.cls_journal_id.id,
                 'partner_id': self.partner_id.id,
                 #                 'analytic_account_id': category_id.account_analytic_id.id if category_id.type == 'purchase' else False,
-                'currency_id': company_currency != current_currency and current_currency.id or False,
-                'amount_currency': company_currency != current_currency and cash_debit_amount_before or 0.0,
+                'currency_id': current_currency.id if company_currency != current_currency else company_currency.id,
+                # 'amount_currency': company_currency != current_currency and cash_debit_amount_before or 0.0,
+                'amount_currency': cash_debit_amount_before,
             })
             vals.append(cash_move_line_debit)
         #diff amount with usd
@@ -952,7 +992,13 @@ class EmployeeAdvanceExpense(models.Model):
             print("need to make exchange adjustment")
             account_id = self.company_id.currency_exchange_journal_id.default_account_id.id
             #convert usd to mmk
-            diff_amount_currency = company_currency.with_context({'date': self.cash_clearance_date}).compute(diff_amount, current_currency)
+            # diff_amount_currency = company_currency.with_context({'date': self.cash_clearance_date}).compute(diff_amount, current_currency)
+            diff_amount_currency = company_currency._convert(
+                from_amount=diff_amount,
+                to_currency=current_currency,
+                company=self.env.company,
+                date=self.cash_clearance_date
+            )
             gain_loss_diff = (0, 0, {
                 'name': ref,
                 'account_id': account_id,
@@ -961,8 +1007,9 @@ class EmployeeAdvanceExpense(models.Model):
                 'journal_id': self.cls_journal_id.id,
                 'partner_id': self.partner_id.id,
                 #                 'analytic_account_id': category_id.account_analytic_id.id if category_id.type == 'purchase' else False,
-                'currency_id': company_currency != current_currency and current_currency.id or False,
-                'amount_currency': company_currency != current_currency and diff_amount_currency or 0.0,
+                'currency_id': current_currency.id if company_currency != current_currency else company_currency.id,
+                # 'amount_currency': company_currency != current_currency and diff_amount_currency or 0.0,
+                'amount_currency': diff_amount_currency,
             })
             vals.append(gain_loss_diff)
 

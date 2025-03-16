@@ -2,7 +2,7 @@
     <data>
 
         <template id="payslip_process_request" name="Portal layout : payslip process rquest menu entries" inherit_id="portal.portal_breadcrumbs" priority="20">
-            <xpath expr="//ol[hasclass('o_portal_submenu')]" position="inside">
+            <xpath expr="//ol[contains(@class, 'o_portal_submenu')]" position="inside">
                 <li t-if="page_name == 'payslip_process_request' or payslip_process_request" t-attf-class="breadcrumb-item #{'active ' if not payslip_process_request else ''}">
                     <a t-if="payslip_process_requests" t-attf-href="/my/payslip_process_requests?{{ keep_query() }}">Payslip Adjustments</a>
                     <t t-else="">Payroll Adjustments</t>
@@ -12,10 +12,10 @@
                 </li>
             </xpath>
         </template>
-
+        
         <template id="portal_payslip_process_request" name="Payslip Process Request Portal" inherit_id="portal.portal_my_home" priority="40">
             <xpath expr="//div[hasclass('o_portal_docs')]" position="inside">
-                <t t-if="request.env.user.portal_payslip_process_request_user" t-call="portal.portal_docs_entry">
+                <t t-if="request.env.user.portal_payslip_process_request_user" t-call="isy_ticketing.portal_docs_entry">
                     <t t-set="title">Payroll Adjustments</t>
                     <t t-set="url" t-value="'/my/payslip_process_requests'"/>
                     <t t-set="count" t-value="payslip_process_requests_count"/>
