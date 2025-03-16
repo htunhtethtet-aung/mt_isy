@@ -58,18 +58,16 @@
 
                 <!-- Studio Purchase View -->
 
-                  <xpath expr="//field[@name='qty_invoiced']" position="replace"/>
+                  <!-- <xpath expr="//field[@name='qty_invoiced']" position="replace"/> -->
                   <xpath expr="//field[@name='qty_received']" position="replace"/>
                   <xpath expr="//button[@name='button_cancel']" position="attributes">
-                    
-                    <attribute name="states">{}</attribute>
                     <attribute name="invisible">x_studio_reason_for_cancellation == False or state == 'cancel'</attribute>
                   </xpath>
                   <xpath expr="//button[@name='button_cancel']" position="after">
                       <button name="button_cancel_greg" 
                           type="object" 
                           string="Cancel" 
-                          states="draft,to approve,sent,purchase"
+                          invisible="state not in ('draft','to approve','sent','purchase')"
                           groups="mt_isy.group_po_cancel_user"/>
                   </xpath>
                   <!-- <xpath expr="//field[@name='picking_count']" position="attributes">
@@ -122,10 +120,10 @@
                   <xpath expr="//form[1]/sheet[1]/notebook[1]/page[1]/field[@name='order_line']/tree[1]/field[@name='product_id']" position="attributes">
                     <attribute name="string">Account Code &amp; Description</attribute>
                   </xpath>
-                  <xpath expr="//form[1]/sheet[1]/notebook[1]/page[1]/field[@name='order_line']/tree[1]/field[@name='product_id']" position="after">
-                    <xpath expr="//form[1]/sheet[1]/notebook[1]/page[1]/field[@name='order_line']/tree[1]/field[@name='account_analytic_id']" position="move"/>
+                  <!-- <xpath expr="//form[1]/sheet[1]/notebook[1]/page[1]/field[@name='order_line']/tree[1]/field[@name='product_id']" position="after"> -->
+                  <!-- <xpath expr="//form[1]/sheet[1]/notebook[1]/page[1]/field[@name='order_line']/tree[1]/field[@name='account_analytic_id']" position="move"/>
                     <field name="x_studio_account_department" string="Account Department"  invisible="1"/>
-                  </xpath>
+                  </xpath> -->
                   <xpath expr="//form[1]/sheet[1]/notebook[1]/page[1]/field[@name='order_line']/tree[1]/field[@name='name']" position="attributes">
                     
                     <attribute name="invisible">1</attribute>
@@ -143,12 +141,12 @@
                     
                     <attribute name="invisible">1</attribute>
                   </xpath> -->
-                  <xpath expr="//field[@name='analytic_tag_ids']" position="attributes">
+                  <!-- <xpath expr="//field[@name='analytic_tag_ids']" position="attributes">
                     
                     <attribute name="invisible">1</attribute>
-                  </xpath>
+                  </xpath> -->
                   <xpath expr="//form[1]/sheet[1]/notebook[1]/page[1]/field[@name='order_line']/tree[1]/field[@name='product_qty']" position="attributes">
-                    <attribute name="readonly">state == purchase</attribute>
+                    <attribute name="readonly">state == 'purchase'</attribute>
                   </xpath>
                   <xpath expr="//form[1]/sheet[1]/notebook[1]/page[1]/field[@name='order_line']/tree[1]/field[@name='product_qty']" position="after">
                     <field name='qty_to_invoice' invisible='1'/>
@@ -169,11 +167,11 @@
                       <create name="add_product_control" string="Add a product"/>
                     </control>
                   </xpath>
-                  <xpath expr="//form[1]/sheet[1]/notebook[1]/page[1]/field[@name='order_line']/tree[1]/field[@name='account_analytic_id']" position="attributes">
+                  <!-- <xpath expr="//form[1]/sheet[1]/notebook[1]/page[1]/field[@name='order_line']/tree[1]/field[@name='account_analytic_id']" position="attributes">
                     
                     <attribute name="invisible">1</attribute>
                     <attribute name="string">Cost Center</attribute>
-                  </xpath>
+                  </xpath> -->
 
                   <xpath expr="//form[1]/sheet[1]/notebook[1]/page[1]/field[@name='order_line']/tree[1]/field[@name='product_packaging_qty']" position="attributes">
                     
@@ -202,16 +200,15 @@
                     <div name="date_planned_div" class="o_row">
                         <field name="date_planned" readonly="state not in ('draft', 'sent', 'to approve', 'purchase')"/>
                         <field name="mail_reminder_confirmed" invisible="1"/>
-                        <span class="text-muted" invisible="mail_reminder_confirmed = False">(confirmed by vendor)</span>
+                        <span class="text-muted" invisible="mail_reminder_confirmed == False">(confirmed by vendor)</span>
                     </div>
                     <field name="picking_type_id" domain="[('code','=','incoming'), '|', ('warehouse_id', '=', False), ('warehouse_id.company_id', '=', company_id)]" options="{'no_create': True}" groups="stock.group_stock_multi_locations"/>
-                    <field name="dest_address_id" groups="stock.group_stock_multi_locations" invisible="default_location_dest_id_usage != 'customer'" required="default_location_dest_id_usage == 'customer')"/>
+                    <field name="dest_address_id" groups="stock.group_stock_multi_locations" invisible="default_location_dest_id_usage != 'customer'" required="default_location_dest_id_usage == 'customer'"/>
                   </xpath>
 
                   <field name='partner_id' position='attributes'>
                     <attribute name='options'>{'no_create': True, 'no_create_edit': True, 'no_open':True}</attribute>
                   </field>
-
             </field>
         </record>
   	</data>

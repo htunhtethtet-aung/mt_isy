@@ -107,6 +107,12 @@ class PurchaseOrder(models.Model):
         ('inventory','Inventory'),
         ('consumable','Consumable'),
         ('service','Service')],string='Type')
+    x_studio_inv_status = fields.Selection([
+        ('draft','Draft'),
+        ('open','Open'),
+        ('in_payment','In Payment'),
+        ('paid','Paid'),
+        ('cancel','Canelled')],string='INV  Status', related='order_line.invoice_lines.move_id.state', store=True)
 
     def check_two_step(self):
         is_two_step = False
