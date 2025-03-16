@@ -34,7 +34,7 @@ class ExtendedBudgetOpeningEntry(models.TransientModel):
                     'name': budget.id,
                     'account_id': budget.account_id.id,
                     'tax_currency_rate': budget.tax_currency_rate,
-                    'x_studio_type': budget.x_studio_type.id,
+                    'x_studio_type': budget.x_studio_type,
                     'x_studio_group': budget.x_studio_group.id,
                 }))
             self.update({'entry_details': result_list})
@@ -51,7 +51,7 @@ class ExtendedBudgetOpeningEntry(models.TransientModel):
                 'name': rec.name.name,
                 'account_id': rec.account_id.id,
                 'tax_currency_rate': rec.tax_currency_rate,
-                'x_studio_type': rec.x_studio_type.id,
+                'x_studio_type': rec.x_studio_type,
                 'x_studio_group': rec.x_studio_group.id,
                 'start_date':   self.name_for.date_from,
                 'end_date': self.name_for.date_to,
@@ -72,7 +72,9 @@ class ExtendedBudgetOpeningEntryDetails(models.TransientModel):
     entry_id = fields.Many2one('extended.budget.opening.entry')
     account_id = fields.Many2one('account.account', string="Account")
     tax_currency_rate = fields.Float(string="Tax Currency Rate")
-    x_studio_type = fields.Many2one("account.account.type", string="Type")
+    #x_studio_type = fields.Many2one("account.account.type", string="Type")
+    x_studio_type = fields.Selection(
+        string="Type", related="account_id.account_type")
     x_studio_group = fields.Many2one("x_grouping", string="Group")
 
 

@@ -108,12 +108,18 @@ class BudgetDisplayCostManagerWizard(models.TransientModel):
         results = self.env.cr.dictfetchall()
         for res in results:
             account_code = res.get('account_code')
-            account_name = res.get('account_name')[0]
+            account_names = res.get('account_name')
+            if isinstance(account_names, list) and account_names:
+                account_name = account_names[0]  # Take the first dictionary
+                if isinstance(account_name, dict):
+                    account_name = account_name.get('en_US') or list(account_name.values())[0]  # Extract name
+            else:
+                account_name = "" 
             planned_amount = res.get('planned_amount')
             practical_amount = res.get('practical_amount')
             if planned_amount!=0 or practical_amount!=0:
                 vals.append({
-                    "name": '['+str(account_code)+']-'+account_name,
+                    "name": f"[{account_code}]-{account_name}",
                     "user_id": user_id.id,
                     # "group_id": x_studio_group,
                     "budget": planned_amount,
@@ -443,9 +449,9 @@ class BudgetDisplayCCMWizardCapex(models.TransientModel):
             # line_obj._apply_ir_rules(where_query, 'read')
             from_clause,  where_clause, where_clause_params = where_query.get_sql()
             # from_clause = '"account_move_line" LEFT JOIN "account_move" AS "account_move_line__move_id" ON ("account_move_line"."move_id" = "account_move_line__move_id"."id")'
-            from_clause += ' LEFT JOIN account_account acc on acc.id=account_move_line.account_id LEFT JOIN account_account_type acc_type on acc_type.id=acc.account_type'
+            from_clause += ' LEFT JOIN account_account acc on acc.id=account_move_line.account_id'
             # where_clause = '(((("account_move_line"."date" >= %s) AND ("account_move_line"."date" <= %s)) AND ("account_move_line__move_id"."state" = %s)) AND (FALSE OR (("account_move_line"."account_id" in (%s)) AND ("account_move_line"."capex_group_id" in (SELECT "x_capex_group".id FROM "x_capex_group" WHERE ("x_capex_group"."name" = %s))))))'
-            select = "SELECT SUM(CASE WHEN acc_type.name='Fixed Assets' AND account_move_line__move_id.journal_id=81 THEN (debit) ELSE (debit)-(credit) END) from " + from_clause + " where " + where_clause
+            select = "SELECT SUM(CASE WHEN acc.account_type='Fixed Assets' AND account_move_line__move_id.journal_id=81 THEN (debit) ELSE (debit)-(credit) END) from " + from_clause + " where " + where_clause
             # select = "SELECT  (debit)-SUM(credit) from " + from_clause + " where " + where_clause
             self.env.cr.execute(select, where_clause_params)
             practical_amount = self.env.cr.fetchone()[0] or 0
@@ -546,11 +552,6 @@ class BudgetDisplayConsolidatedWizardCapex(models.TransientModel):
         group_id = self.env.ref('mt_isy.group_budget_cosolidated_user').id
         conso_user_ids = self.sudo().get_users_from_group(group_id)
 
-        # account_ids = self.env['account.account'].search([('account_type.internal_group','=','expense')])
-        # if self.user_id:
-        #     product_ids = self.env['product.product'].search([('product_tmpl_id','in',self.user_id.user_product_ids.ids)])
-        #     account_ids = product_ids.mapped('property_account_expense_id')
-
         domain = [('from_date', '>=', date_start), ('to_date', '<=', date_end),('type_id.name','ilike','expense')]
         all_budget_ids = self.env['capital.budget.template'].search(domain)
         _logger.debug("start listing.")
@@ -576,7 +577,7 @@ class BudgetDisplayConsolidatedWizardCapex(models.TransientModel):
             # line_obj._apply_ir_rules(where_query, 'read')
             from_clause,  where_clause, where_clause_params = where_query.get_sql()
             # from_clause = '"account_move_line" LEFT JOIN "account_move" AS "account_move_line__move_id" ON ("account_move_line"."move_id" = "account_move_line__move_id"."id")'
-            from_clause += ' LEFT JOIN account_account acc on acc.id=account_move_line.account_id LEFT JOIN account_account_type acc_type on acc_type.id=acc.account_type'
+            from_clause += ' LEFT JOIN account_account acc on acc.id=account_move_line.account_id'
             # where_clause = '(((("account_move_line"."date" >= %s) AND ("account_move_line"."date" <= %s)) AND ("account_move_line__move_id"."state" = %s)) AND (FALSE OR (("account_move_line"."account_id" in (%s)) AND ("account_move_line"."capex_group_id" in (SELECT "x_capex_group".id FROM "x_capex_group" WHERE ("x_capex_group"."name" = %s))))))'
             select = "SELECT SUM((debit)) from " + from_clause + " where " + where_clause
             # select = "SELECT SUM(debit)-SUM(credit) from " + from_clause + " where " + where_clause

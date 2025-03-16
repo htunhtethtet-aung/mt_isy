@@ -46,6 +46,8 @@ class AccountAccount(models.Model):
     extra_group_id = fields.Many2many('account.group.extra',string="Extra Account")
     savings_for_education = fields.Boolean('College Education Saving?')
     no_budget = fields.Boolean('No Budget',default=False)
+    x_studio_account_type = fields.Selection(
+        string="Type", related="account_type")
 
     def _adapt_parent_account_group(self):
         pass
