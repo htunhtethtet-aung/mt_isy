@@ -9,6 +9,8 @@
             <field name="arch" type="xml">
                 <xpath expr="//field[@name='holiday_status_id']" position="before">
                     <field name="sequence_id"/>
+                    <field name="employee_id" options="{'no_create': True, 'no_create_edit': True, 'no_open':True}"/>
+                    <field name="x_studio_department_2" string="Department" groups="base.group_erp_manager"  readonly="1"/>
                 </xpath>
                 <xpath expr="//field[@name='holiday_status_id']" position="attributes">
                     <attribute name="context">{'employee_id':employee_id, 'default_date_from':date_from}</attribute>
@@ -24,12 +26,12 @@
                 <xpath expr="//field[@name='request_date_to']" position="attributes">
                     <attribute name="widget">False</attribute>
                 </xpath>
-                <xpath expr="//form[1]/sheet[1]/group[1]/group[1]/field[@name='name']" position="attributes">
+                <xpath expr="//field[@name='name']" position="attributes">
                     <attribute name="readonly">state not in ["draft","confirm"]</attribute>
                     <attribute name="required">1</attribute>
                     <attribute name="string">Reason For Request</attribute>
                 </xpath>
-                <xpath expr="//form[1]/sheet[1]/group[1]/group[1]/field[@name='name']" position="after">
+                <xpath expr="//field[@name='name']" position="after">
                     <field name="x_studio_justification" string="Justification"/>
                     <field name="x_studio_approver_2" string="Approver" options="{'no_create': True, 'no_open': True}"  required="0" domain="[[&quot;x_studio_is_manager&quot;,&quot;=&quot;,True]]" readonly="1"/>
                     <field name="current_personal_balance"/>
@@ -47,11 +49,11 @@
                     <attribute name="groups">base.group_user</attribute>
                     <attribute name="required">1</attribute>
                 </xpath>
-
-                <xpath expr="//form[1]/sheet[1]/group[1]/group[2]/field[@name='department_id']" position="after">
+<!-- 
+                <xpath expr="//field[@name='department_id']" position="after">
                     <field name="employee_id" options="{'no_create': True, 'no_create_edit': True, 'no_open':True}"/>
                     <field name="x_studio_department_2" string="Department" groups="base.group_erp_manager"  readonly="1"/>
-                </xpath>
+                </xpath> -->
 
                 <button name='action_validate' position='attributes'>
                     <attribute name='groups'>isy_custom.leave_validation</attribute>

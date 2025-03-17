@@ -14,12 +14,37 @@ class HolidaysRequest(models.Model):
 
     @api.depends('employee_id','holiday_status_id')
     def compute_current_leave_balance(self):
+        # for rec in self:
+        #     holiday_status_id = self.env['hr.leave.type'].search([('name','ilike','Personal Leave'),('active','=',True)],limit=1, order='id desc')
+        #     mapped_days = holiday_status_id.get_employees_days((rec.employee_id | rec.employee_ids).ids)
+        #     if rec.employee_id:
+        #         leave_days = mapped_days[rec.employee_id.id][holiday_status_id.id]
+        #         rec.current_personal_balance = leave_days.get('virtual_remaining_leaves') or 0
+        #     else:
+        #         rec.current_personal_balance = 0
         for rec in self:
             holiday_status_id = self.env['hr.leave.type'].search([('name','ilike','Personal Leave'),('active','=',True)],limit=1, order='id desc')
-            mapped_days = holiday_status_id.get_employees_days((rec.employee_id | rec.employee_ids).ids)
-            if rec.employee_id:
-                leave_days = mapped_days[rec.employee_id.id][holiday_status_id.id]
-                rec.current_personal_balance = leave_days.get('virtual_remaining_leaves') or 0
+            if rec.employee_id and holiday_status_id:
+                # Step 1: Calculate the Allocated Leave from the hr.leave.allocation model
+                allocation_records = self.env['hr.leave.allocation'].search([
+                    ('employee_id', '=', rec.employee_id.id),
+                    ('holiday_status_id', '=', holiday_status_id.id),
+                    ('state', '=', 'validate')  # Only consider validated allocations
+                ])
+
+                total_allocated = sum(allocation.number_of_days for allocation in allocation_records)
+                
+                # Step 2: Calculate the Taken Leave from the hr.leave model
+                leave_records = self.env['hr.leave'].search([
+                    ('employee_id', '=', rec.employee_id.id),
+                    ('holiday_status_id', '=', rec.holiday_status_id.id),
+                    ('state', '=', 'validate')  # Only consider validated leaves
+                ])
+
+                total_taken = sum(leave.number_of_days for leave in leave_records)
+
+                # Calculate remaining balance: Allocated - Taken
+                rec.current_personal_balance = total_allocated - total_taken
             else:
                 rec.current_personal_balance = 0
 
@@ -78,7 +103,7 @@ class HolidaysRequest(models.Model):
     def _onchange_holiday_status_id(self):
         self.request_unit_half = False
         self.request_unit_hours = False
-        self.request_unit_custom = False
+        #self.request_unit_custom = False
         if self.holiday_status_id.requires_allocation == "yes":
             self.leave_balance = self.holiday_status_id.virtual_remaining_leaves
         elif self.holiday_status_id.accumulated_leave:
@@ -121,35 +146,62 @@ class HolidaysRequest(models.Model):
 
     @api.constrains('state', 'number_of_days', 'holiday_status_id')
     def _check_holidays(self):
-        mapped_days = self.holiday_status_id.get_employees_days((self.employee_id | self.employee_ids).ids)
+        remaining_leave_map = {}
         for holiday in self:
-            if holiday.holiday_type != 'employee'\
-                    or not holiday.employee_id and not holiday.employee_ids\
-                    or holiday.holiday_status_id.requires_allocation == 'no':
-                if holiday.holiday_status_id.accumulated_leave and holiday.employee_id.accumulated_leave<=0:
+            # Skip the check if there is no employee or holiday status
+            if not holiday.employee_id or not holiday.holiday_status_id:
+                continue
+
+            # Calculate the remaining leaves for the employee and the specific leave type
+            remaining_leave_map = self._get_remaining_leave_for_employees(
+                holiday.employee_id, holiday.holiday_status_id)
+            if holiday.holiday_type != 'employee' or holiday.holiday_status_id.requires_allocation == 'no':
+                if holiday.holiday_status_id.accumulated_leave and holiday.employee_id.accumulated_leave <= 0:
                     raise ValidationError(_('The number of remaining time off is not sufficient for this time off type.'))
-                elif holiday.holiday_status_id.unpaid_accumulated_leave and holiday.employee_id.unpaid_accumulated_leave<=0:
+                elif holiday.holiday_status_id.unpaid_accumulated_leave and holiday.employee_id.unpaid_accumulated_leave <= 0:
                     raise ValidationError(_('The number of remaining time off is not sufficient for this time off type.'))
                 else:
                     continue
+            
+            # Now validate the remaining leave balance for the employee
             if holiday.employee_id:
-                leave_days = mapped_days[holiday.employee_id.id][holiday.holiday_status_id.id]
-                if float_compare(leave_days['remaining_leaves'], 0, precision_digits=2) == -1\
-                        or float_compare(leave_days['virtual_remaining_leaves'], 0, precision_digits=2) == -1:
+                remaining_leaves = remaining_leave_map.get(holiday.employee_id.id, 0)
+                if remaining_leaves < self.number_of_days:
                     raise ValidationError(_('The number of remaining time off is not sufficient for this time off type.\n'
                                             'Please also check the time off waiting for validation.'))
             else:
+                # Check for multiple employees
                 unallocated_employees = []
                 for employee in holiday.employee_ids:
-                    leave_days = mapped_days[employee.id][holiday.holiday_status_id.id]
-                    if float_compare(leave_days['remaining_leaves'], self.number_of_days, precision_digits=2) == -1\
-                            or float_compare(leave_days['virtual_remaining_leaves'], self.number_of_days, precision_digits=2) == -1:
+                    remaining_leaves = remaining_leave_map.get(employee.id, 0)
+                    if remaining_leaves < self.number_of_days:
                         unallocated_employees.append(employee.name)
                 if unallocated_employees:
                     raise ValidationError(_('The number of remaining time off is not sufficient for this time off type.\n'
-                                            'Please also check the time off waiting for validation.')
-                                        + _('\nThe employees that lack allocation days are:\n%s',
-                                            (', '.join(unallocated_employees))))
+                                            'Please also check the time off waiting for validation.') +
+                                        _('The employees that lack allocation days are:\n%s' % (', '.join(unallocated_employees))))
+
+    def _get_remaining_leave_for_employees(self, employee, holiday_status):
+        # Get all the allocations for the given holiday status
+        allocations = self.env['hr.leave.allocation'].search([
+            ('employee_id', '=', employee.id),
+            ('holiday_status_id', '=', holiday_status.id),
+            ('state', '=', 'validate')  # Only consider validated allocations
+        ])
+
+        allocated_days = sum(allocation.number_of_days for allocation in allocations)
+
+        # Get all the taken leave records for the given holiday status
+        taken_leaves = self.env['hr.leave'].search([
+            ('employee_id', '=', employee.id),
+            ('holiday_status_id', '=', holiday_status.id),
+            ('state', '=', 'validate')  # Only consider validated leaves
+        ])
+
+        taken_days = sum(leave.number_of_days for leave in taken_leaves)
+
+        remaining_leave = allocated_days - taken_days
+        return {employee.id: remaining_leave}
 
     def action_approve(self):
         if self.employee_id.id and self.x_studio_approver_2 and self.x_studio_approver_2.user_id.id != self.env.user.id and self.env.user.login not in ('director@isyedu.org','odooadmin@isyedu.org'):

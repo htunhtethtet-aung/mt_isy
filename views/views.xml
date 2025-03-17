@@ -223,7 +223,7 @@
                             <tree editable='bottom'>
                                 <field name="adv_exp_type"/>
                                 <field name="product_id" options="{'no_create':True,'no_open':True}" readonly="adv_exp_type == 'advance'"/>
-                                <field name="description"/>
+                                <field name="description" groups="studio_customization.no_one_52f94e0e-8622-497d-b0f2-d9c5ac7d0194"/>
                                 <field name="company_currency_id" groups="studio_customization.no_one_52f94e0e-8622-497d-b0f2-d9c5ac7d0194"/>
                                 <field name="amount_difference" widget="monetary" options="{'currency_field':'company_currency_id'}"  groups="isy_custom.group_order_confirmation,isy_custom.group_create_bill,purchase.group_purchase_manager"/>
                                 <field name="unit_amount" required="1" widget="monetary" options="{'currency_field': 'currency_id'}"/>
@@ -288,10 +288,16 @@
             <field name="model">hr.leave</field>
             <field name="inherit_id" ref="hr_holidays.hr_leave_view_form"/>
             <field name="arch" type="xml">
-                <xpath expr="//form[1]/sheet[1]/group[1]/group[1]/label[2]" position="attributes">
+                <!-- <xpath expr="//form[1]/sheet[1]/group[1]/group[1]/label[2]" position="attributes">
                     <attribute name="invisible">1</attribute>
                 </xpath>
                 <xpath expr="//form[1]/sheet[1]/group[1]/group[1]/div[2]" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath> -->
+                <xpath expr="//field[@name='request_date_from']" position="attributes">
+                    <attribute name="invisible">1</attribute>
+                </xpath>
+                <xpath expr="//field[@name='request_date_to']" position="attributes">
                     <attribute name="invisible">1</attribute>
                 </xpath>
 
@@ -569,13 +575,11 @@
                             </group>
                             <group>
                             </group>
-                            <group col="4">
+                            <group>
                                 <group>
                                     <field name="expatriate_total"/>
                                     <field name="expatriate_retirement_total"/>
                                     <field name="total_extra_duty_allowance"/>
-                                </group>
-                                <group>
                                     <field name="expatriate_total_60"/>
                                     <field name="expatriate_retirement_total_60"/>
                                     <field name="total_extra_duty_allowance_60"/>
@@ -678,11 +682,15 @@
                         </h1>
                         <field name="is_expat" invisible="1"/>
                         <field name="is_donation" invisible='1'/>
-                        <group col="4">
-                            <field name="request_employee_id" readonly="state != 'draft'" force_save="1" options="{'no_open':True,'no_create':True}"/>
-                            <field name="requested_date" readonly="1" force_save="1"/>
-                            <field name="approval_person" readonly="1" force_save="1" options="{'no_open':True,'no_create':True}"/>
-                            <field name="total_salary" readonly="1" force_save="1" invisible="is_expat == False"/>
+                        <group>
+                            <group>
+                                <field name="request_employee_id" readonly="state != 'draft'" force_save="1" options="{'no_open':True,'no_create':True}"/>
+                                <field name="approval_person" readonly="1" force_save="1" options="{'no_open':True,'no_create':True}"/>
+                            </group>
+                            <group>
+                                <field name="requested_date" readonly="1" force_save="1"/>
+                                <field name="total_salary" readonly="1" force_save="1" invisible="is_expat == False"/>
+                            </group>
                         </group>
                         <group>
                             <group string="Monthly Salary">
@@ -700,9 +708,9 @@
                             </group>
                         </group>
                         <group col="4" invisible="is_expat == False">
-                            <field name="total_school_trip_adjustment" readonly="1" force_save="1"/>
-                            <field name="total_tuition_fee_adjustment" readonly="1" force_save="1"/>
-                            <field name="total_other_adjustment" readonly="1" force_save="1"/>
+                                <field name="total_school_trip_adjustment" readonly="1" force_save="1"/>
+                                <field name="total_other_adjustment" readonly="1" force_save="1"/>
+                                <field name="total_tuition_fee_adjustment" readonly="1" force_save="1"/>
                         </group>
                         <field name='is_after_lastday' invisible='1'/>
                         <group>
@@ -817,9 +825,9 @@
                 <field name="request_employee_id" position="attributes">
                     <attribute name="readonly">False</attribute>
                 </field>
-                <xpath expr="//field[@name='request_employee_id']" position="attributes">
+                <!-- <xpath expr="//field[@name='request_employee_id']" position="attributes">
                     <attribute name="groups">mt_isy.group_isy_payslip_process_modify_requestor</attribute>
-                </xpath>
+                </xpath> -->
             </field>
         </record>
 

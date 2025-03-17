@@ -63,7 +63,7 @@ class HrPayslipEmployees(models.TransientModel):
         for contract in contracts:
             values = dict(default_values, **{
                 'employee_id': contract.employee_id.id,
-                'credit_note': payslip_run.credit_note,
+                #'credit_note': payslip_run.credit_note,
                 'payslip_run_id': payslip_run.id,
                 'date_from': payslip_run.date_start,
                 'date_to': payslip_run.date_end,

@@ -18,9 +18,9 @@
             <field name="model">account.account</field>
             <field name="inherit_id" ref="account.view_account_form"/>
             <field name="arch" type="xml">
-                <field name="internal_type" position='attributes'>
+                <!-- <field name="internal_type" position='attributes'>
                     <attribute name='invisible'>0</attribute>
-                </field>
+                </field> -->
                 <field name="internal_group" position='attributes'>
                     <attribute name='invisible'>0</attribute>
                 </field>

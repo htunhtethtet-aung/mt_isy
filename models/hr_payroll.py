@@ -88,61 +88,65 @@ class HrPayslip(models.Model):
         def _sum_salary_rule_category(localdict, category, amount):
             if category.parent_id:
                 localdict = _sum_salary_rule_category(localdict, category.parent_id, amount)
-            localdict['categories'].dict[category.code] = localdict['categories'].dict.get(category.code, 0) + amount
+            if 'categories' not in localdict or not isinstance(localdict['categories'], dict):
+                localdict['categories'] = {}
+            localdict['categories'][category.code] = localdict['categories'].get(category.code, 0) + amount
             return localdict
 
-        self.ensure_one()
-        result = {}
-        rules_dict = {}
-        worked_days_dict = {line.code: line for line in self.worked_days_line_ids if line.code}
-        inputs_dict = {line.code: line for line in self.input_line_ids if line.code}
+        #self.ensure_one()
+        all_results = []
+        for payslip in self: 
+            result = {}
+            rules_dict = {}
+            worked_days_dict = {line.code: line for line in self.worked_days_line_ids if line.code}
+            inputs_dict = {line.code: line for line in self.input_line_ids if line.code}
 
-        employee = self.employee_id
-        contract = self.contract_id
+            employee = self.employee_id
+            contract = self.contract_id
 
-        localdict = {
-            **self._get_base_local_dict(),
-            **{
-                'categories': self.env['hr.salary.rule.category'].search([]),
-                'rules': rules_dict,
-                'payslip': self,
-                'worked_days': self.worked_days_line_ids,
-                'inputs': self.input_line_ids,
-                'employee': employee,
-                'contract': contract
-            }
-        }
-        # for rule in sorted(self.struct_id.rule_ids, key=lambda x: x.sequence):
-        for rule in sorted(self.contract_id.structure_type_id.struct_ids_topay.mapped('rule_ids_topay'), key=lambda x: x.sequence):
-            localdict.update({
-                'result': None,
-                'result_qty': 1.0,
-                'result_rate': 100})
-            if rule._satisfy_condition(localdict):
-                amount, qty, rate = rule._compute_rule(localdict)
-                #check if there is already a rule computed with that code
-                previous_amount = rule.code in localdict and localdict[rule.code] or 0.0
-                #set/overwrite the amount computed for this rule in the localdict
-                tot_rule = amount * qty * rate / 100.0
-                localdict[rule.code] = tot_rule
-                rules_dict[rule.code] = rule
-                # sum the amount for its salary category
-                localdict = _sum_salary_rule_category(localdict, rule.category_id, tot_rule - previous_amount)
-                # create/overwrite the rule in the temporary results
-                result[rule.code] = {
-                    'sequence': rule.sequence,
-                    'code': rule.code,
-                    'name': rule.name,
-                    'note': rule.note,
-                    'salary_rule_id': rule.id,
-                    'contract_id': contract.id,
-                    'employee_id': employee.id,
-                    'amount': amount,
-                    'quantity': qty,
-                    'rate': rate,
-                    'slip_id': self.id,
+            localdict = {
+                **self._get_base_local_dict(),
+                **{
+                    'categories': self.env['hr.salary.rule.category'].search([]),
+                    'rules': rules_dict,
+                    'payslip': self,
+                    'worked_days': self.worked_days_line_ids,
+                    'inputs': self.input_line_ids,
+                    'employee': employee,
+                    'contract': contract
                 }
-        return result.values()
+            }
+            # for rule in sorted(self.struct_id.rule_ids, key=lambda x: x.sequence):
+            for rule in sorted(self.contract_id.structure_type_id.struct_ids_topay.mapped('rule_ids_topay'), key=lambda x: x.sequence):
+                localdict.update({
+                    'result': None,
+                    'result_qty': 1.0,
+                    'result_rate': 100})
+                if rule._satisfy_condition(localdict):
+                    amount, qty, rate = rule._compute_rule(localdict)
+                    #check if there is already a rule computed with that code
+                    previous_amount = rule.code in localdict and localdict[rule.code] or 0.0
+                    #set/overwrite the amount computed for this rule in the localdict
+                    tot_rule = amount * qty * rate / 100.0
+                    localdict[rule.code] = tot_rule
+                    rules_dict[rule.code] = rule
+                    # sum the amount for its salary category
+                    localdict = _sum_salary_rule_category(localdict, rule.category_id, tot_rule - previous_amount)
+                    # create/overwrite the rule in the temporary results
+                    result[rule.code] = {
+                        'sequence': rule.sequence,
+                        'code': rule.code,
+                        'name': rule.name,
+                        #'note': rule.note,
+                        'salary_rule_id': rule.id,
+                        'contract_id': contract.id,
+                        'employee_id': employee.id,
+                        'amount': amount,
+                        'quantity': qty,
+                        'rate': rate,
+                        'slip_id': self.id,
+                    }
+        return all_results
 
     def get_inputs(self, contracts, date_from, date_to):
         res = []
@@ -678,7 +682,7 @@ class HrPayslip(models.Model):
             
             move = self.env['account.move'].with_context(use_functional_rate=True).create(move_dict)
             slip.write({'move_id': move.id, 'date': date, 'state': 'done'})
-            move.post()
+            move.action_post()
             #integrate with employee advance expense and payslip
             settlement_ids = []
             for acl in adv_cls_list:
@@ -730,7 +734,7 @@ class HrPayslipLine(models.Model):
         """
         # use partner of salary rule or fallback on employee's address
         # register_partner_id = self.salary_rule_id.register_id.partner_id
-        # partner_id = register_partner_id.id or self.slip_id.employee_id.address_home_id.id
+        # partner_id = register_partner_id.id or self.slip_id.employee_id.address_id.id
         # if credit_account:
         #     if register_partner_id or self.salary_rule_id.account_credit.internal_type in ('receivable', 'payable'):
         #         return partner_id
@@ -738,7 +742,7 @@ class HrPayslipLine(models.Model):
         #     if register_partner_id or self.salary_rule_id.account_debit.internal_type in ('receivable', 'payable'):
         #         return partner_id
         # return False
-        partner_id = self.slip_id.employee_id.address_home_id.id
+        partner_id = self.slip_id.employee_id.address_id.id
         return partner_id
 
 
@@ -1480,7 +1484,7 @@ class HrPayslipProcessRequest(models.Model):
                 if eom_date.day > 10: # 10th is local staff last day to request
                     eom_date = eom_date.replace(day=28)+timedelta(days=4)
                     eom_date = eom_date - timedelta(days=eom_date.day)
-                accumulated_savings = self.env['account.move.line'].sudo().search([('account_id.savings_for_education','=',True),('partner_id','=',rec.request_employee_id.sudo().address_home_id.id),('date','<=',eom_date),('move_id.state','=','posted')])
+                accumulated_savings = self.env['account.move.line'].sudo().search([('account_id.savings_for_education','=',True),('partner_id','=',rec.request_employee_id.sudo().address_id.id),('date','<=',eom_date),('move_id.state','=','posted')])
                 # Saving is Credit nature
                 total_car += sum(accumulated_savings.mapped('credit'))-sum(accumulated_savings.mapped('debit'))
                 rec.total_car = total_car
@@ -1579,29 +1583,79 @@ class HrPayslipProcessRequest(models.Model):
             # if monthly_salary < (total_allocation_request+total_deduction_request):
             #     raise UserError("Your allocation (deduction) is more than your salary (60%) so please contact slinn@isyedu.org.")
 
+    # def get_contract(self):
+    #     for rec in self:
+    #         if 'Local' not in rec.request_employee_id.sudo().category_ids.sudo().mapped('name'): # Expat - ISYA 
+    #             obj_contract_isya = rec.env['hr.contract'].sudo().search(
+    #                 [('company_id.parent_id','=',False),('employee_id', '=', rec.request_employee_id.id), ('state', 'in', ['open', 'pending'])])
+    #             obj_contract_gty = rec.env['hr.contract'].sudo().search(
+    #                 [('company_id.parent_id','!=',False),('employee_id', '=', rec.request_employee_id.id), ('state', 'in', ['open', 'pending'])])
+    #             if not obj_contract_isya:
+    #                 raise ValidationError(_("There has no open/renew contract of ISYA for this requested employee."))
+    #             if not obj_contract_gty:
+    #                 raise ValidationError(_("There has no open/renew contract of GTY for this requested employee."))
+    #             obj_contracts = {'gty':obj_contract_gty, 'isya':obj_contract_isya}
+    #         else: # Local
+    #             obj_contract_gty = rec.env['hr.contract'].sudo().search(
+    #                 [('company_id.parent_id','!=',False),('employee_id', '=', rec.request_employee_id.id), ('state', 'in', ['open', 'pending'])])
+    #             obj_contract_isya = rec.env['hr.contract']
+    #             if not obj_contract_gty:
+    #                 raise ValidationError(_("There has no open/renew contract for this requested employee."))
+    #             obj_contracts = {'gty':obj_contract_gty, 'isya':obj_contract_isya}
+    #         if len(obj_contract_isya) > 1 or len(obj_contract_gty) > 1:
+    #             raise UserError(_("Please check contracts because there has more than one opening/renew contract."))
+            
+    #         return obj_contracts
+
+
     def get_contract(self):
         for rec in self:
-            if 'Local' not in rec.request_employee_id.sudo().category_ids.sudo().mapped('name'): # Expat - ISYA 
-                obj_contract_isya = rec.env['hr.contract'].sudo().search(
-                    [('company_id.parent_id','=',False),('employee_id', '=', rec.request_employee_id.id), ('state', 'in', ['open', 'pending'])])
-                obj_contract_gty = rec.env['hr.contract'].sudo().search(
-                    [('company_id.parent_id','!=',False),('employee_id', '=', rec.request_employee_id.id), ('state', 'in', ['open', 'pending'])])
+            is_local = 'Local' in rec.request_employee_id.sudo().category_ids.sudo().mapped('name')
+
+            _logger.info(f"Processing employee {rec.request_employee_id.name}, Local: {is_local}")
+
+            obj_contract_isya = rec.env['hr.contract']
+            obj_contract_gty = rec.env['hr.contract']
+
+            if not is_local:  # Expat - ISYA
+                obj_contract_isya = rec.env['hr.contract'].sudo().search([
+                    ('company_id.short_name', '=', 'ISYA'),
+                    ('employee_id', '=', rec.request_employee_id.id),
+                    ('state', 'in', ['open', 'pending'])
+                ])
+                obj_contract_gty = rec.env['hr.contract'].sudo().search([
+                    ('company_id.short_name', '=', 'GTY'),
+                    ('employee_id', '=', rec.request_employee_id.id),
+                    ('state', 'in', ['open', 'pending'])
+                ])
+
+                _logger.info(f"Expat Contracts -> ISYA: {len(obj_contract_isya)}, GTY: {len(obj_contract_gty)}")
+
                 if not obj_contract_isya:
-                    raise ValidationError(_("There has no open/renew contract of ISYA for this requested employee."))
+                    raise ValidationError(_("There is no open/renew contract of ISYA for this requested employee."))
                 if not obj_contract_gty:
-                    raise ValidationError(_("There has no open/renew contract of GTY for this requested employee."))
-                obj_contracts = {'gty':obj_contract_gty, 'isya':obj_contract_isya}
-            else: # Local
-                obj_contract_gty = rec.env['hr.contract'].sudo().search(
-                    [('company_id.parent_id','!=',False),('employee_id', '=', rec.request_employee_id.id), ('state', 'in', ['open', 'pending'])])
-                obj_contract_isya = rec.env['hr.contract']
+                    raise ValidationError(_("There is no open/renew contract of GTY for this requested employee."))
+
+            else:  # Local
+                obj_contract_gty = rec.env['hr.contract'].sudo().search([
+                    ('company_id.short_name', '=', 'GTY'),
+                    ('employee_id', '=', rec.request_employee_id.id),
+                    ('state', 'in', ['open', 'pending'])
+                ])
+
+                _logger.info(f"Local Contracts -> GTY: {len(obj_contract_gty)}")
+
                 if not obj_contract_gty:
-                    raise ValidationError(_("There has no open/renew contract for this requested employee."))
-                obj_contracts = {'gty':obj_contract_gty, 'isya':obj_contract_isya}
+                    raise ValidationError(_("There is no open/renew contract for this requested employee."))
+
+            obj_contracts = {'gty': obj_contract_gty, 'isya': obj_contract_isya}
+
             if len(obj_contract_isya) > 1 or len(obj_contract_gty) > 1:
-                raise UserError(_("Please check contracts because there has more than one opening/renew contract."))
-            
+                raise UserError(_("Please check contracts because there is more than one open/renew contract."))
+
             return obj_contracts
+
+
   
     def process_approved(self):
         for rec in self:
