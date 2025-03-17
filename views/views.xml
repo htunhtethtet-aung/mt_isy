@@ -236,10 +236,10 @@
                             </tree>
                         </field>
                         <group string="Reason for Advance">
-                            <field name="reason_for_advance" readonly="state in ['done','paid','confirm','approved_hr_manager']" nolabel="1" placeholder="Reason for Advance............."/>
+                            <field name="reason_for_advance" readonly="state in ['done','paid','confirm','approved_hr_manager']" nolabel="1" placeholder="Reason for Advance............." colspan="2"/>
                         </group>
                         <group string="Comment">
-                            <field name="comment" readonly="state in ['done','paid']" nolabel="1" placeholder="Add Comment"/>
+                            <field name="comment" readonly="state in ['done','paid']" nolabel="1" placeholder="Add Comment" colspan="2"/>
                         </group>
                     </page>
                
