@@ -402,7 +402,13 @@ class HrPayslip(models.Model):
                     for obj_oca in obj_other_currency_advs:
                         #gain loss calculation
                         #diff amount USD convert to MMK
-                        obj_oca_usd_amount = obj_oca.currency_id.with_context({'date': obj_oca.account_validate_date}).compute(slip.input_line_ids.filtered(lambda r: r.code == "ASCD_MMK").amount, slip.employee_id.company_id.currency_id)
+                        # obj_oca_usd_amount = obj_oca.currency_id.with_context({'date': obj_oca.account_validate_date}).compute(slip.input_line_ids.filtered(lambda r: r.code == "ASCD_MMK").amount, slip.employee_id.company_id.currency_id)
+                        obj_oca_usd_amount = obj_oca.currency_id._convert(
+                            from_amount=slip.input_line_ids.filtered(lambda r: r.code == "ASCD_MMK").amount,
+                            to_currency=slip.employee_id.company_id.currency_id,
+                            company=self.env.company,
+                            date=obj_oca.account_validate_date
+                        )
 
                         gain_loss = diff_cls_bca_adv - obj_oca_usd_amount
                         #start advance integration
@@ -556,8 +562,13 @@ class HrPayslip(models.Model):
                     obj_oca_result = 0
                     for obj_oca in obj_other_currency_advs:
                         obj_oca_usd_amount = obj_oca.currency_id.with_context({'date': obj_oca.account_validate_date}).compute(obj_oca.total_amount_expense, slip.employee_id.company_id.currency_id)
-                        obj_oca_usd_amount_adv = obj_oca.currency_id.compute(obj_oca.total_amount_expense, slip.employee_id.company_id.currency_id)
-
+                        # obj_oca_usd_amount_adv = obj_oca.currency_id.compute(obj_oca.total_amount_expense, slip.employee_id.company_id.currency_id)
+                        obj_oca_usd_amount_adv = obj_oca.currency_id._convert(
+                            from_amount=obj_oca.total_amount_expense,
+                            to_currency=slip.employee_id.company_id.currency_id,
+                            company=self.env.company,
+                            date=obj_oca.account_validate_date
+                        )
                         obj_oca_result += obj_oca.total_amount_expense
                         adv_cls_list.append({'id': obj_oca, 'amount': obj_oca.total_amount_expense, 'state': 'cleared'})
 
