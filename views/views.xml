@@ -223,7 +223,7 @@
                             <tree editable='bottom'>
                                 <field name="adv_exp_type"/>
                                 <field name="product_id" options="{'no_create':True,'no_open':True}" readonly="adv_exp_type == 'advance'"/>
-                                <field name="description" groups="studio_customization.no_one_52f94e0e-8622-497d-b0f2-d9c5ac7d0194"/>
+                                <field name="description"/>
                                 <field name="company_currency_id" groups="studio_customization.no_one_52f94e0e-8622-497d-b0f2-d9c5ac7d0194"/>
                                 <field name="amount_difference" widget="monetary" options="{'currency_field':'company_currency_id'}"  groups="isy_custom.group_order_confirmation,isy_custom.group_create_bill,purchase.group_purchase_manager"/>
                                 <field name="unit_amount" required="1" widget="monetary" options="{'currency_field': 'currency_id'}"/>
