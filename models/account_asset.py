@@ -66,7 +66,7 @@ class AccountAccount(models.Model):
         pass
 
     @api.model
-    def _name_search(self, name, args=None, operator='ilike', limit=100, name_get_uid=None):
+    def _name_search(self, name, args=None, operator='ilike', limit=100, name_get_uid=None, order=None):
         args = args or []
         domain = []
         if name:
@@ -74,7 +74,7 @@ class AccountAccount(models.Model):
             if operator in expression.NEGATIVE_TERM_OPERATORS:
                 domain = ['&', '!'] + domain[1:]
         
-        account_ids = self._search(expression.AND([domain, args]), limit=limit, access_rights_uid=name_get_uid)
+        account_ids = self._search(expression.AND([domain, args]), limit=limit, access_rights_uid=name_get_uid,order=order)
         return account_ids
 
 

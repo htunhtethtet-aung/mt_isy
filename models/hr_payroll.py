@@ -26,7 +26,6 @@ from odoo.tools.misc import format_date
 from odoo.tools.safe_eval import safe_eval
 
 
-
 CASH_ALLOCATION_TYPE = [
     ('cash_usd', 'Amount in USD to be paid in USD cash'),
     ('local_bank_ks', 'Amount in USD to be converted into Kyat cash'),
@@ -88,65 +87,64 @@ class HrPayslip(models.Model):
         def _sum_salary_rule_category(localdict, category, amount):
             if category.parent_id:
                 localdict = _sum_salary_rule_category(localdict, category.parent_id, amount)
-            if 'categories' not in localdict or not isinstance(localdict['categories'], dict):
+            if 'categories' not in localdict:
                 localdict['categories'] = {}
             localdict['categories'][category.code] = localdict['categories'].get(category.code, 0) + amount
             return localdict
 
-        #self.ensure_one()
-        all_results = []
-        for payslip in self: 
-            result = {}
-            rules_dict = {}
-            worked_days_dict = {line.code: line for line in self.worked_days_line_ids if line.code}
-            inputs_dict = {line.code: line for line in self.input_line_ids if line.code}
+        self.ensure_one()
+        result = {}
+        rules_dict = {}
+        worked_days_dict = {line.code: line for line in self.worked_days_line_ids if line.code}
+        inputs_dict = {line.code: line for line in self.input_line_ids if line.code}
 
-            employee = self.employee_id
-            contract = self.contract_id
+        employee = self.employee_id
+        contract = self.contract_id
 
-            localdict = {
-                **self._get_base_local_dict(),
-                **{
-                    'categories': self.env['hr.salary.rule.category'].search([]),
-                    'rules': rules_dict,
-                    'payslip': self,
-                    'worked_days': self.worked_days_line_ids,
-                    'inputs': self.input_line_ids,
-                    'employee': employee,
-                    'contract': contract
-                }
+        localdict = {
+            **self._get_base_local_dict(),
+            **{
+                'categories': {},
+                'rules': rules_dict,
+                'payslip': self,
+                'worked_days': self.worked_days_line_ids,
+                'inputs': self.input_line_ids,
+                'employee': employee,
+                'contract': contract
             }
-            # for rule in sorted(self.struct_id.rule_ids, key=lambda x: x.sequence):
-            for rule in sorted(self.contract_id.structure_type_id.struct_ids_topay.mapped('rule_ids_topay'), key=lambda x: x.sequence):
-                localdict.update({
-                    'result': None,
-                    'result_qty': 1.0,
-                    'result_rate': 100})
-                if rule._satisfy_condition(localdict):
-                    amount, qty, rate = rule._compute_rule(localdict)
-                    #check if there is already a rule computed with that code
-                    previous_amount = rule.code in localdict and localdict[rule.code] or 0.0
-                    #set/overwrite the amount computed for this rule in the localdict
-                    tot_rule = amount * qty * rate / 100.0
-                    localdict[rule.code] = tot_rule
-                    rules_dict[rule.code] = rule
-                    # sum the amount for its salary category
-                    localdict = _sum_salary_rule_category(localdict, rule.category_id, tot_rule - previous_amount)
-                    # create/overwrite the rule in the temporary results
-                    result[rule.code] = {
-                        'sequence': rule.sequence,
-                        'code': rule.code,
-                        'name': rule.name,
-                        #'note': rule.note,
-                        'salary_rule_id': rule.id,
-                        'contract_id': contract.id,
-                        'employee_id': employee.id,
-                        'amount': amount,
-                        'quantity': qty,
-                        'rate': rate,
-                        'slip_id': self.id,
-                    }
-        return all_results
+        }
+        # for rule in sorted(self.struct_id.rule_ids, key=lambda x: x.sequence):
+        for rule in sorted(self.contract_id.structure_type_id.struct_ids_topay.mapped('rule_ids_topay'), key=lambda x: x.sequence):
+            localdict.update({
+                'result': None,
+                'result_qty': 1.0,
+                'result_rate': 100})
+            if rule._satisfy_condition(localdict):
+                amount, qty, rate = rule._compute_rule(localdict)
+                #check if there is already a rule computed with that code
+                previous_amount = rule.code in localdict and localdict[rule.code] or 0.0
+                #set/overwrite the amount computed for this rule in the localdict
+                tot_rule = amount * qty * rate / 100.0
+                localdict[rule.code] = tot_rule
+                rules_dict[rule.code] = rule
+                # sum the amount for its salary category
+                localdict = _sum_salary_rule_category(localdict, rule.category_id, tot_rule - previous_amount)
+                # create/overwrite the rule in the temporary results
+                result[rule.code] = {
+                    'sequence': rule.sequence,
+                    'code': rule.code,
+                    'name': rule.name,
+                    #'note': rule.note,
+                    'salary_rule_id': rule.id,
+                    'contract_id': contract.id,
+                    'employee_id': employee.id,
+                    'amount': amount,
+                    'quantity': qty,
+                    'rate': rate,
+                    'total': tot_rule,
+                    'slip_id': self.id,
+                }
+        return result.values()
 
     def get_inputs(self, contracts, date_from, date_to):
         res = []
@@ -355,7 +353,7 @@ class HrPayslip(models.Model):
                             'date': date,
                             'debit': obj_bca_result > 0.0 and obj_bca_result or 0.0,
                             'credit': obj_bca_result < 0.0 and -obj_bca_result or 0.0,
-                            'analytic_account_id': line.salary_rule_id.analytic_account_id.id,
+                            #'analytic_account_id': line.salary_rule_id.analytic_account_id.id,
                             # 'tax_line_id': line.salary_rule_id.account_tax_id.id,
                         })
                         line_ids.append(debit_line)
@@ -369,7 +367,7 @@ class HrPayslip(models.Model):
                             'date': date,
                             'debit': obj_bca_result < 0.0 and -obj_bca_result or 0.0,
                             'credit': obj_bca_result > 0.0 and obj_bca_result or 0.0,
-                            'analytic_account_id': line.salary_rule_id.analytic_account_id.id,
+                            #'analytic_account_id': line.salary_rule_id.analytic_account_id.id,
                             # 'tax_line_id': line.salary_rule_id.account_tax_id.id,
                         })
                         line_ids.append(credit_line)
@@ -439,7 +437,7 @@ class HrPayslip(models.Model):
                                 'date': date,
                                 'debit': obj_oca_usd_amount > 0.0 and obj_oca_usd_amount or 0.0,
                                 'credit': obj_oca_usd_amount < 0.0 and -obj_oca_usd_amount or 0.0,
-                                'analytic_account_id': line.salary_rule_id.analytic_account_id.id,
+                                #'analytic_account_id': line.salary_rule_id.analytic_account_id.id,
                                 # 'tax_line_id': line.salary_rule_id.account_tax_id.id,
                             })
                             line_ids.append(debit_line)
@@ -455,7 +453,7 @@ class HrPayslip(models.Model):
                                 'date': date,
                                 'debit': diff_cls_bca_adv < 0.0 and -diff_cls_bca_adv or 0.0,
                                 'credit': diff_cls_bca_adv > 0.0 and diff_cls_bca_adv or 0.0,
-                                'analytic_account_id': line.salary_rule_id.analytic_account_id.id,
+                                #'analytic_account_id': line.salary_rule_id.analytic_account_id.id,
                                 # 'tax_line_id': line.salary_rule_id.account_tax_id.id,
                             })
                             line_ids.append(credit_line)
@@ -508,7 +506,7 @@ class HrPayslip(models.Model):
                                 'date': date,
                                 'debit': obj_bca.total_amount_expense > 0.0 and obj_bca.total_amount_expense or 0.0,
                                 'credit': obj_bca.total_amount_expense < 0.0 and -obj_bca.total_amount_expense or 0.0,
-                                'analytic_account_id': line.salary_rule_id.analytic_account_id.id,
+                                #'analytic_account_id': line.salary_rule_id.analytic_account_id.id,
                                 # 'tax_line_id': line.salary_rule_id.account_tax_id.id,
                             })
                             line_ids.append(debit_line)
@@ -522,7 +520,7 @@ class HrPayslip(models.Model):
                                 'date': date,
                                 'debit': obj_bca.total_amount_expense < 0.0 and -obj_bca.total_amount_expense or 0.0,
                                 'credit': obj_bca.total_amount_expense > 0.0 and obj_bca.total_amount_expense or 0.0,
-                                'analytic_account_id': line.salary_rule_id.analytic_account_id.id,
+                                #'analytic_account_id': line.salary_rule_id.analytic_account_id.id,
                                 # 'tax_line_id': line.salary_rule_id.account_tax_id.id,
                             })
                             line_ids.append(credit_line)
@@ -556,7 +554,7 @@ class HrPayslip(models.Model):
                                 'date': date,
                                 'debit': obj_oca_usd_amount > 0.0 and obj_oca_usd_amount or 0.0,
                                 'credit': obj_oca_usd_amount < 0.0 and -obj_oca_usd_amount or 0.0,
-                                'analytic_account_id': line.salary_rule_id.analytic_account_id.id,
+                                #'analytic_account_id': line.salary_rule_id.analytic_account_id.id,
                                 # 'tax_line_id': line.salary_rule_id.account_tax_id.id,
                             })
                             line_ids.append(debit_line)
@@ -572,7 +570,7 @@ class HrPayslip(models.Model):
                                 'date': date,
                                 'debit': obj_oca_usd_amount_adv < 0.0 and -obj_oca_usd_amount_adv or 0.0,
                                 'credit': obj_oca_usd_amount_adv > 0.0 and obj_oca_usd_amount_adv or 0.0,
-                                'analytic_account_id': line.salary_rule_id.analytic_account_id.id,
+                                #'analytic_account_id': line.salary_rule_id.analytic_account_id.id,
                                 # 'tax_line_id': line.salary_rule_id.account_tax_id.id,
                             })
                             line_ids.append(credit_line)
@@ -622,7 +620,7 @@ class HrPayslip(models.Model):
                         'date': date,
                         'debit': amount > 0.0 and amount or 0.0,
                         'credit': amount < 0.0 and -amount or 0.0,
-                        'analytic_account_id': line.salary_rule_id.analytic_account_id.id,
+                        #'analytic_account_id': line.salary_rule_id.analytic_account_id.id,
                         # 'tax_line_id': line.salary_rule_id.account_tax_id.id,
                     })
                     line_ids.append(debit_line)
@@ -637,7 +635,7 @@ class HrPayslip(models.Model):
                         'date': date,
                         'debit': amount < 0.0 and -amount or 0.0,
                         'credit': amount > 0.0 and amount or 0.0,
-                        'analytic_account_id': line.salary_rule_id.analytic_account_id.id,
+                        #'analytic_account_id': line.salary_rule_id.analytic_account_id.id,
                         # 'tax_line_id': line.salary_rule_id.account_tax_id.id,
                     })
                     line_ids.append(credit_line)
