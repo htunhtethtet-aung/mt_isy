@@ -92,27 +92,42 @@ class HrPayslip(models.Model):
             localdict['categories'][category.code] = localdict['categories'].get(category.code, 0) + amount
             return localdict
 
-        self.ensure_one()
-        result = {}
-        rules_dict = {}
-        worked_days_dict = {line.code: line for line in self.worked_days_line_ids if line.code}
-        inputs_dict = {line.code: line for line in self.input_line_ids if line.code}
+        # self.ensure_one()
+        # result = {}
+        # rules_dict = {}
+        # worked_days_dict = {line.code: line for line in self.worked_days_line_ids if line.code}
+        # inputs_dict = {line.code: line for line in self.input_line_ids if line.code}
 
-        employee = self.employee_id
-        contract = self.contract_id
+        # employee = self.employee_id
+        # contract = self.contract_id
 
-        localdict = {
-            **self._get_base_local_dict(),
-            **{
+        # localdict = {
+        #     **self._get_base_local_dict(),
+        #     **{
+        #         'categories': {},
+        #         'rules': rules_dict,
+        #         'payslip': self,
+        #         'worked_days': self.worked_days_line_ids,
+        #         'inputs': self.input_line_ids,
+        #         'employee': employee,
+        #         'contract': contract
+        #     }
+        # }
+        result_list = []  # Stores results for multiple payslips
+
+        for payslip in self:  # Loop over multiple payslips
+            result = {}  # Each payslip has its own dictionary
+            localdict = {  # Create a fresh dictionary for each payslip
+                **payslip._get_base_local_dict(),
                 'categories': {},
-                'rules': rules_dict,
-                'payslip': self,
-                'worked_days': self.worked_days_line_ids,
-                'inputs': self.input_line_ids,
-                'employee': employee,
-                'contract': contract
+                'rules': {},
+                'payslip': payslip,
+                'worked_days': payslip.worked_days_line_ids,
+                'inputs': payslip.input_line_ids,
+                'employee': payslip.employee_id,
+                'contract': payslip.contract_id
             }
-        }
+
         # for rule in sorted(self.struct_id.rule_ids, key=lambda x: x.sequence):
         for rule in sorted(self.contract_id.structure_type_id.struct_ids_topay.mapped('rule_ids_topay'), key=lambda x: x.sequence):
             localdict.update({
@@ -126,7 +141,7 @@ class HrPayslip(models.Model):
                 #set/overwrite the amount computed for this rule in the localdict
                 tot_rule = amount * qty * rate / 100.0
                 localdict[rule.code] = tot_rule
-                rules_dict[rule.code] = rule
+                localdict['rules'][rule.code] = rule
                 # sum the amount for its salary category
                 localdict = _sum_salary_rule_category(localdict, rule.category_id, tot_rule - previous_amount)
                 # create/overwrite the rule in the temporary results
@@ -136,13 +151,13 @@ class HrPayslip(models.Model):
                     'name': rule.name,
                     #'note': rule.note,
                     'salary_rule_id': rule.id,
-                    'contract_id': contract.id,
-                    'employee_id': employee.id,
+                    'contract_id': payslip.contract_id.id,
+                    'employee_id': payslip.employee_id.id,
                     'amount': amount,
                     'quantity': qty,
                     'rate': rate,
                     'total': tot_rule,
-                    'slip_id': self.id,
+                    'slip_id': payslip.id,
                 }
         return result.values()
 
