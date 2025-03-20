@@ -111,7 +111,7 @@ class BudgetDisplayCostManagerWizard(models.TransientModel):
             account_names = res.get('account_name')
             if isinstance(account_names, list) and account_names:
                 account_name = account_names[0]  # Take the first dictionary
-                if isinstance(account_name, dict):
+            if isinstance(account_name, dict):
                     account_name = account_name.get('en_US') or list(account_name.values())[0]  # Extract name
             else:
                 account_name = "" 
@@ -286,13 +286,20 @@ class BudgetDisplayConsolidatedWizard(models.TransientModel):
         results = self.env.cr.dictfetchall()
         for res in results:
             account_code = res.get('account_code')
-            account_name = res.get('account_name')[0]
+            account_names = res.get('account_name')
+            if isinstance(account_names, list) and account_names:
+                account_name = account_names[0]  # Take the first dictionary
+            if isinstance(account_name, dict):
+                    account_name = account_name.get('en_US') or list(account_name.values())[0]  # Extract name
+            else:
+                account_name = "" 
             planned_amount = res.get('planned_amount')
             planned_amount_100 = res.get('planned_amount_100')
             practical_amount = res.get('practical_amount')
             if planned_amount!=0 or practical_amount!=0:
                 vals.append({
-                    "name": '['+str(account_code)+']-'+account_name,
+                    "name": f"[{str(account_code)}]-{account_name}",
+                    # "name": '['+str(account_code)+']-'+account_name,
                     "user_id": user_id.id,
                     # "group_id": x_studio_group,
                     "budget_100": planned_amount_100,
