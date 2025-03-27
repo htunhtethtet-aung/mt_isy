@@ -13,7 +13,7 @@
             </xpath>
         </template>
         
-        <template id="portal_payslip_process_request" name="Payslip Process Request Portal" inherit_id="portal.portal_my_home" priority="40">
+        <template id="portal_payslip_process_request" name="Payslip Process Request Portal" inherit_id="portal.portal_my_home" priority="60">
             <xpath expr="//div[hasclass('o_portal_docs')]" position="inside">
                 <t t-if="request.env.user.portal_payslip_process_request_user" t-call="isy_ticketing.portal_docs_entry">
                     <t t-set="title">Payroll Adjustments</t>

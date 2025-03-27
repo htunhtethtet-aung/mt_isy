@@ -220,7 +220,7 @@
                 <page name="advance" position="replace">
                     <page name="advance" string="Advance Expense Lines">
                         <field name="advance_expense_line_ids" context="{'adv_exp_type':adv_exp_type}" readonly="state not in ['draft']">
-                            <tree editable='bottom'>
+                            <tree>
                                 <field name="adv_exp_type"/>
                                 <field name="product_id" options="{'no_create':True,'no_open':True}" readonly="adv_exp_type == 'advance'"/>
                                 <field name="description"/>

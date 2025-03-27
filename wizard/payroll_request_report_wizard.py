@@ -229,9 +229,11 @@ class PayrollRequestReport(models.TransientModel):
         fp = BytesIO()
         workbook.save(fp)
         fp.seek(0)
-        stock_file = base64.encodestring(fp.read())
+        stock_file = base64.b64encode(fp.read())
         self.write({'datas': stock_file})
         fp.close()
+        
+        _logger.info("Download URL: %s", '/web/binary/download_document?model=payroll.request.report&field=datas&id=%s&filename=payroll_request_report.xls' % (self.id))
 
         return {
             'type': 'ir.actions.act_url',
